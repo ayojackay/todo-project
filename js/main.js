@@ -1,22 +1,21 @@
 /* BOOTSTRAP TOOLTIP JS */
-const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-const tooltipList = [...tooltipTriggerList].map((tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl));
+const initBootstrapTooltips = () => {
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipList = [...tooltipTriggerList].map((tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl));
+}
 /************************/
-/*
-TODO
 
-- Create task list
-- Create action to remove an item from todo list to task list
-*/ 
-let tasks = [
-    "Take out trash",
-    "Clean dishes",
-    "Pick up dry cleaning",
-    "Pick up groceries",
-    "Practive Javascript"
-];
-let completedTasks = [];
-let todos = [];
+const getSessionStorage = (item) => JSON.parse(sessionStorage.getItem(item));
+const setSessionStorage = (item, val) => sessionStorage.setItem(item, JSON.stringify(val));
+
+let tasks, completedTasks, todos;
+window.onload = () => {
+    tasks = getSessionStorage("tasks") || setSessionStorage("tasks", []);
+    // completedTasks = getSessionStorage("completedTasks");
+    todos = getSessionStorage("todos") || setSessionStorage("todos", []);
+    tasks && createTaskItems(tasks);
+    initBootstrapTooltips();
+}
 
 const taskList = document.getElementById("taskList");
 const todosList = document.getElementById("todosList");
@@ -28,19 +27,28 @@ const completedListCount = document.getElementById("tasksCompleted");
 const initRemoveItemTimer = (item) => setTimeout(()=>{
     item.input.remove();
     item.btn.remove();
-    console.log("REMOVAL SUCCESS");
+    
 }, 10000);
 const cancelTimer = (timer) => clearTimeout(timer);
 function createTaskItems(tasks) {
     tasks.forEach((task, index) => {
-        let li = createTaskListItem(task, index);
+        let li = createTaskListItem(task.title, index);
         taskList.appendChild(li);
+        const taskTodoBtn = document.getElementById(`taskTodoBtn${index}`);
+        console.log("fe: ", task);
+        taskTodoBtn.addEventListener("click", (e) => {
+            const task = document.querySelector(`li#task${e.target.id.replace("taskTodoBtn", "")}`);
+            console.log(task,index);
+            moveToTodos(task, index);
+        })
     });
+    
 }
 
 function createTodoListItem(task, index, btnAction, forCompleted = false) {
+    
     let li = createElement("li", {
-        _id: `task${index}`,
+        _id: index,
         classes: "row justify-content-between p-0 me-2 my-3 align-items-center border border-2 border-dark"
     });
     const taskNameColumn = createElement("div", { classes: "col-md-6"});
@@ -50,7 +58,6 @@ function createTodoListItem(task, index, btnAction, forCompleted = false) {
         classes: "col-md-4 d-flex align-items-center justify-content-end m-0 p-0"
     });
     const actionBtn = btnAction("btn border-0 p-0", "Remove from Todo List");
-    console.log("createListItem - actionBtn: ", actionBtn);
     const completeActionInput =  forCompleted ? 
                                     createCompleteAction(index, true) : 
                                     createCompleteAction(index);
@@ -58,39 +65,50 @@ function createTodoListItem(task, index, btnAction, forCompleted = false) {
     li.append(taskNameColumn, taskActionsColumn);
     return li;
 }
-function createTaskListItem(taskTitle) {
-    
+function createTaskListItem(taskTitle, index) {
+    let li = createElement("li", {
+        _id: `task${index}`,
+        classes: "row justify-content-between p-0 me-2 my-3 align-items-center border border-2 border-dark"
+    });
     const taskNameColumn = createElement("div", { classes: "col-md-6"});
     const taskNameP = createElement("p", {classes: "m-0", text: taskTitle});
     taskNameColumn.appendChild(taskNameP);
     const taskActionsColumn = createElement("div", { 
         classes: "col-md-4 d-flex align-items-center justify-content-end m-0 p-0"
     });
-    const actionBtn = createActionBtn("btn border-0 p-0 btn-danger", "Delete task from todo List", "fa-solid fa-trash-can");
-    taskActionsColumn.append(actionBtn);
-    
+    const actionBtnWrapper = createActionBtn("btn btn-outline-primary", "Move to Todo list", "fa-solid fa-list-check");
+    const todoBtn = actionBtnWrapper.querySelector("button");
+    todoBtn.id = `taskTodoBtn${index}`;
+
+    taskActionsColumn.append(actionBtnWrapper);
+    li.append(taskNameColumn, taskActionsColumn);
+    return li;
 }
 
-function moveToTodos(taskElement) {
+function moveToTodos(taskElement, index) {
+    console.log("TASK ELEMENT: ", taskElement);
     // Removes element from DOM
     taskElement.remove();
     // Remove item from the array
     // TBC
     const taskTxt = taskElement.childNodes[0].textContent;
-    // Push task to completed list
+    // Push task to todos array
+    console.log("TODOS: ", todos);
     todos.push(taskTxt);
     // Create new completed task id
-    const taskId = `todoTask${todos.at(-1).replace(" ", "")}`;
+    // const taskId = `todoTask${todos.at(-1).replace(" ", "")}`;
+    const taskId = `todo${todos.indexOf(taskTxt)}`
+    
     // Create action undo btn
     const removeBtn = createActionBtn("btn btn-primary", "Remove from todo list", "fa-solid fa-xmark");
     // Create new completed task list item
-    const newTask = createListItem(taskTxt, taskId, true);
-
-    const completeActionInput =  forCompleted ? 
-                                    createCompleteAction(index, true) : 
-                                    createCompleteAction(index);
-    newTask.appendChild(completeActionInput, removeBtn);
-    taskList.appendChild(newTask);
+    const newTask = createTodoListItem(taskTxt, taskId, createActionBtn);
+    // const completeActionInput =  createCompleteAction(index);
+    // const completeActionInput =  forCompleted ? 
+    //                                 createCompleteAction(index, true) : 
+    //                                 createCompleteAction(index);
+    // newTask.appendChild(completeActionInput, removeBtn);
+    todosList.appendChild(newTask);
 }
 
 function createElement(
@@ -100,8 +118,8 @@ function createElement(
     const el = document.createElement(element);
 
     for(const property in options) {
-        // console.log("PROPERTY -----> ", property);
-        // console.log("PROPERTY VALUE ------> ", options[property]);
+        // 
+        // 
         switch(property) {
             case "classes":
                 el.classList = options[property];
@@ -113,7 +131,7 @@ function createElement(
                 el.textContent = options[property];
                 break;
             default:
-                console.log("Property not listed.");
+                
                 // return "";
         }
     }
@@ -121,39 +139,33 @@ function createElement(
     return el;
 }
 
-function createCompleteAction(index, isCompleted = false) {
+function createActionForm(type, index) {
     const form = createElement("form", { classes: "text-center px-2 py-2"});
-    const label = createElement("label", { classes: "visually-hidden", text: "Completed"});
-    const input = createElement("input");
-    input.type = "checkbox";
+    const label = createElement("label", { classes: "visually-hidden", text: type === "checkbox" && "Complete"});
+    let input = createElement("input");
     let _id;
-    if(isCompleted) {
-        _id = `taskInputCompleted${index}`;
-        input.checked = true;
-        input.id = _id;
-        label.setAttribute("for", _id);
+    if(type !== "checkbox") {
+        let btn = createActionBtn("btn btn-danger", "Delete", "fa-solid fa-trash-can");
+        btn.type = "submit";
+        form.append(btn);
     } else {
-        _id = `taskInput${index}`;
+        input.type = "checkbox";
+        _id = `${type}${index}`;
         input.id = _id;
         label.setAttribute("for", _id);
+        form.append(label, input);
     }
-    form.append(label, input);
+    
     return form;
 }
 
 function createActionBtn(elClasses, elTitle, icon="") {
     const btnWrapper = createElement("div", { classes: "px-2 py-2"});
-    const btn = createElement("btn", {classes: elClasses});
+    const btn = createElement("button", {classes: elClasses});
     btn.setAttribute("data-bs-toggle", "tooltip");
     btn.setAttribute("data-bs-title", elTitle);
     btn.setAttribute("type", "button");
     btn.innerHTML = 
-    // <span aria-hidden="true">
-    //     <i class="fa-solid fa-xmark"></i>
-    // </span>
-    // <span class="visually-hidden">
-    //     Remove from Todo
-    // </span>
     `
     ${icon ? `
     <span aria-hidden="true">
@@ -165,7 +177,6 @@ function createActionBtn(elClasses, elTitle, icon="") {
     </span>
     `;
     btnWrapper.appendChild(btn);
-    console.log("createActionBtn ", btnWrapper);
     return btnWrapper;
 }
 function moveToCompleted(taskElement) {
@@ -173,6 +184,7 @@ function moveToCompleted(taskElement) {
     taskElement.remove();
     // Remove item from the array
     // TBC
+    console.log("MOVE TO COMPLETED IS TRIGGERING")
     const taskTxt = taskElement.childNodes[0].textContent;
     // Push task to completed list
     completedTasks.push(taskTxt);
@@ -197,9 +209,10 @@ function moveToCompleted(taskElement) {
 
 }
 
-
 todosList.addEventListener("change", (e) => {
-    const task = document.querySelector(`li#task${e.target.id.replace("taskInput", "")}`);
+    
+    const task = document.querySelector(`li#todo${e.target.id.replace("todoInput", "")}`);
+    
     const taskTxt = task.childNodes[0].textContent;
     const isConfirmed = confirm(`Are you sure you want to mark task, ${taskTxt}, as complete?`);
     if(isConfirmed) {
@@ -211,6 +224,40 @@ todosList.addEventListener("change", (e) => {
     }
 });
 
-// createTaskItems(tasks);
-// moveToCompleted(document.getElementById("task1").childNodes[0]);
 
+function createItem(item = { index: 0,title: "", type: "task", actions: [] }) {
+    const li = createElement("li", {
+        _id: `${itemType}${index}`,
+        classes: "row justify-content-between p-0 me-2 my-3 align-items-center border border-2 border-dark"
+    });
+    const taskNameColumn = createElement("div", { classes: "col-md-6"});
+    const taskNameP = createElement("p", {classes: "m-0", text: title});
+    taskNameColumn.appendChild(taskNameP);
+    const taskActionsColumn = createElement("div", { 
+        classes: "col-md-4 d-flex align-items-center justify-content-end m-0 p-0"
+    });
+
+    actions.length < 0 && actions.forEach(action => {
+        let actionEl = createAction(action);
+        taskActionsColumn.appendChild(action);
+    })
+
+}
+
+function createAction(type) {
+    
+    let form = createElement("form", { classes: "text-center px-2 py-2"});
+    let label = createElement("label", { classes: "visually-hidden", text: `${type[0].toUpperCase()}${type.slice(1)}`});
+    const btn = createElement("button");
+    switch(type) {
+        case "task":
+
+            break;
+        case "todo":
+            break;
+        case "completed":
+            break;
+        default:
+            console.log("Nothing matched...");
+    }
+}
